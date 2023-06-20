@@ -10,8 +10,7 @@ const THREAD_GROUP_WIDTH: usize = 128;
 const SHA256_HASH_SIZE: usize = 32;
 const DISPLAY_INTERVAL: usize = 1000;
 
-fn run_test(device: &Device, kernel_function: &Function, cmd_queue: &CommandQueue) -> (usize, Duration) {
-    let start = std::time::Instant::now();
+fn run_test(device: &Device, kernel_function: &Function, cmd_queue: &CommandQueue) -> usize {
     return autoreleasepool(|| {
         // parameters
         let mut inputs: Vec<u8> = Vec::new();
@@ -61,17 +60,17 @@ fn run_test(device: &Device, kernel_function: &Function, cmd_queue: &CommandQueu
         };
         cmd_encoder.set_buffer(2, Some(&encoded_outputs), 0);
         // dispatch
-        let thread_group_size = MTLSize {
-            width: THREAD_GROUP_WIDTH as u64,
+        let thread_groups_count = MTLSize {
+            width: 128,
             height: 1,
             depth: 1,
         };
-        let thread_group_count = MTLSize {
-            width: ((batch_size + THREAD_GROUP_WIDTH - 1) / THREAD_GROUP_WIDTH) as u64,
+        let threads_per_threadgroup = MTLSize {
+            width: 256,
             height: 1,
             depth: 1,
         };
-        cmd_encoder.dispatch_thread_groups(thread_group_count, thread_group_size);
+        cmd_encoder.dispatch_thread_groups(thread_groups_count, threads_per_threadgroup);
         cmd_encoder.end_encoding();
         cmd_buffer.commit();
         cmd_buffer.wait_until_completed();
@@ -84,7 +83,7 @@ fn run_test(device: &Device, kernel_function: &Function, cmd_queue: &CommandQueu
         assert_eq!(first_hash_slice[..], hex!("91e9240f415223982edc345532630710e94a7f52cd5f48f5ee1afc555078f0ab"));
         assert_eq!(last_hash_slice[..], hex!("91e9240f415223982edc345532630710e94a7f52cd5f48f5ee1afc555078f0ab"));
         // return
-        return (batch_size, start.elapsed());
+        return batch_size;
     });
 }
 
@@ -95,15 +94,17 @@ fn main() {
     let devices = Device::all();
     let device = devices.iter().find(|device| device.name() == "Apple M1").unwrap();
     let library_compile_options = CompileOptions::new();
+    library_compile_options.set_fast_math_enabled(true);
     let library = device.new_library_with_source(PROGRAM, &library_compile_options).unwrap();
     let kernel_function = library.get_function("sha256_kernel", None).unwrap();
     let cmd_queue = device.new_command_queue();
     loop {
-        let (num_hashes, elapsed) = run_test(&device, &kernel_function, &cmd_queue);
-        total_hashes += num_hashes; // each run_test computes NUM_ITERATIONS hashes
+        let start = std::time::Instant::now();
+        let num_hashes = run_test(&device, &kernel_function, &cmd_queue);
+        let elapsed = start.elapsed();
+        total_hashes += num_hashes;
         total_elapsed += elapsed;
         num_iterations += 1;
-
         if num_iterations % DISPLAY_INTERVAL == 0 {
             let hashes_per_second = total_hashes as f64 / total_elapsed.as_secs_f64();
             println!(

@@ -10,8 +10,7 @@ struct Iteration {
     pub input: Vec<u8>
 }
 
-fn run_test(pool: &ThreadPool) -> (usize, Duration) {
-    let start = std::time::Instant::now();
+fn run_test(pool: &ThreadPool) -> usize {
     // parameters
     let mut iterations = Vec::new();
     for _ in 0..NUM_ITERATIONS {
@@ -22,18 +21,15 @@ fn run_test(pool: &ThreadPool) -> (usize, Duration) {
     }
     // custom thread pool
     let num_iterations = iterations.len();
-    let (num_hashes, elapsed) = pool.install(|| {
+    return pool.install(|| {
         // iterate
         let output = iterations.par_iter().map(|iteration| {
             sha2::Sha256::digest(&iteration.input)
         }).collect::<Vec<_>>();
         assert_eq!(output[0][..], hex!("91e9240f415223982edc345532630710e94a7f52cd5f48f5ee1afc555078f0ab"));
         assert_eq!(output[num_iterations - 1][..], hex!("91e9240f415223982edc345532630710e94a7f52cd5f48f5ee1afc555078f0ab"));
-        let elapsed = start.elapsed();
-        (output.len(), elapsed)
+        return output.len();
     });
-    
-    (num_hashes, elapsed)
 }
 
 fn main() {
@@ -43,7 +39,9 @@ fn main() {
     let num_threads = 8;
     let pool = ThreadPoolBuilder::new().num_threads(num_threads).build().unwrap();
     loop {
-        let (num_hashes, elapsed) = run_test(&pool);
+        let start = std::time::Instant::now();
+        let num_hashes = run_test(&pool);
+        let elapsed = start.elapsed();
         total_hashes += num_hashes;
         total_elapsed += elapsed;
         num_iterations += 1;
