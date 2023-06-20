@@ -1,0 +1,7 @@
+[package]
+name = "metal-sha256-rs"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+metal = "0.25.0"
