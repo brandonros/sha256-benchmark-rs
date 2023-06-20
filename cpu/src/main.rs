@@ -1,34 +1,29 @@
-use rayon::{prelude::{IntoParallelRefIterator, ParallelIterator}, ThreadPoolBuilder};
+use rayon::{prelude::{IntoParallelRefIterator, ParallelIterator}, ThreadPoolBuilder, ThreadPool};
 use sha2::Digest;
 use hex_literal::hex;
 use std::time::Duration;
 
-const NUM_ITERATIONS: usize = 32768;
-const SHA256_HASH_SIZE: usize = 32;
+const NUM_ITERATIONS: usize = usize::pow(2, 18);
 const DISPLAY_INTERVAL: u32 = 1000;
 
 struct Iteration {
-    pub input: Vec<u8>,
-    pub input_length: u32
+    pub input: Vec<u8>
 }
 
-fn run_test() -> (usize, Duration) {
+fn run_test(pool: &ThreadPool) -> (usize, Duration) {
+    let start = std::time::Instant::now();
     // parameters
     let mut iterations = Vec::new();
     for _ in 0..NUM_ITERATIONS {
         let input1 = b"hello1";
         iterations.push(Iteration {
-            input: input1.as_slice().to_vec(),
-            input_length: input1.len() as u32
+            input: input1.as_slice().to_vec()
         });
     }
     // custom thread pool
     let num_iterations = iterations.len();
-    let num_threads = 8;
-    let pool = ThreadPoolBuilder::new().num_threads(num_threads).build().unwrap();
     let (num_hashes, elapsed) = pool.install(|| {
         // iterate
-        let start = std::time::Instant::now();
         let output = iterations.par_iter().map(|iteration| {
             sha2::Sha256::digest(&iteration.input)
         }).collect::<Vec<_>>();
@@ -45,9 +40,10 @@ fn main() {
     let mut total_hashes = 0;
     let mut total_elapsed = Duration::new(0, 0);
     let mut num_iterations = 0;
-
+    let num_threads = 8;
+    let pool = ThreadPoolBuilder::new().num_threads(num_threads).build().unwrap();
     loop {
-        let (num_hashes, elapsed) = run_test();
+        let (num_hashes, elapsed) = run_test(&pool);
         total_hashes += num_hashes;
         total_elapsed += elapsed;
         num_iterations += 1;

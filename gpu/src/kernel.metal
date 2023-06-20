@@ -82,7 +82,7 @@ inline uint32_t _word(const thread uint8_t *c) // TODO: device or thread?
 } // _word
 
 // -----------------------------------------------------------------------------
-static void _addbits(thread sha256_context *ctx, uint32_t n)
+inline void _addbits(thread sha256_context *ctx, uint32_t n)
 {
     __CPROVER_assume(__CPROVER_DYNAMIC_OBJECT(ctx));
 
@@ -92,7 +92,7 @@ static void _addbits(thread sha256_context *ctx, uint32_t n)
     ctx->bits[0] = (ctx->bits[0] + n) & 0xFFFFFFFF;
 } // _addbits
 
-static void _hash(thread sha256_context *ctx)
+inline void _hash(thread sha256_context *ctx)
 {
     const uint32_t K[64] = {
       0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5,
@@ -156,7 +156,7 @@ static void _hash(thread sha256_context *ctx)
     ctx->hash[7] += h;
 } // _hash
 
-void sha256_init(thread sha256_context *ctx)
+inline void sha256_init(thread sha256_context *ctx)
 {
     if (ctx != NULL) {
         ctx->bits[0] = ctx->bits[1] = ctx->len = 0;
@@ -171,7 +171,7 @@ void sha256_init(thread sha256_context *ctx)
     }
 } // sha256_init
 
-void sha256_hash(thread sha256_context *ctx, const device void *data, size_t len)
+inline void sha256_hash(thread sha256_context *ctx, const device void *data, size_t len)
 {
     const device uint8_t *bytes = (const device uint8_t *)data;
 
@@ -190,7 +190,7 @@ void sha256_hash(thread sha256_context *ctx, const device void *data, size_t len
 } // sha256_hash
 
 // -----------------------------------------------------------------------------
-void sha256_done(thread sha256_context *ctx, device uint8_t *hash)
+inline void sha256_done(thread sha256_context *ctx, device uint8_t *hash)
 {
     uint32_t i, j;
 
@@ -235,7 +235,7 @@ void sha256_done(thread sha256_context *ctx, device uint8_t *hash)
 } // sha256_done
 
 // -----------------------------------------------------------------------------
-void sha256(thread sha256_context *ctx, const device void *data, size_t len, device uint8_t *hash)
+inline void sha256(thread sha256_context *ctx, const device void *data, size_t len, device uint8_t *hash)
 {
     sha256_init(ctx);
     sha256_hash(ctx, data, len);

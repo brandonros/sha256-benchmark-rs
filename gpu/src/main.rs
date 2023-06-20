@@ -6,13 +6,13 @@ use objc::rc::autoreleasepool;
 
 const PROGRAM: &'static str = include_str!("./kernel.metal");
 const NUM_ITERATIONS: usize = 32768;
-const THREAD_GROUP_WIDTH: usize = 64;
+const THREAD_GROUP_WIDTH: usize = 128;
 const SHA256_HASH_SIZE: usize = 32;
 const DISPLAY_INTERVAL: usize = 1000;
 
-fn run_test() -> (usize, Duration) {
+fn run_test(device: &Device, kernel_function: &Function) -> (usize, Duration) {
+    let start = std::time::Instant::now();
     return autoreleasepool(|| {
-        let start = std::time::Instant::now();
         // parameters
         let mut inputs: Vec<u8> = Vec::new();
         let mut input_lengths: Vec<u32> = Vec::new();
@@ -23,16 +23,9 @@ fn run_test() -> (usize, Duration) {
         }
         let batch_size = input_lengths.len();
         let outputs: Vec<u8> = vec![0; SHA256_HASH_SIZE * batch_size];
-        // get device
-        let devices = Device::all();
-        let device = devices.iter().find(|device| device.name() == "Apple M1").unwrap();
-        // load kernel
-        let options = CompileOptions::new();
-        let library = device.new_library_with_source(PROGRAM, &options).unwrap();
-        let kernel = library.get_function("sha256_kernel", None).unwrap();
-        // set compute function
+        // pipeline
         let pipeline_state_descriptor = ComputePipelineDescriptor::new();
-        pipeline_state_descriptor.set_compute_function(Some(&kernel));
+        pipeline_state_descriptor.set_compute_function(Some(&kernel_function));
         // encode
         let cmd_queue = device.new_command_queue();
         let cmd_buffer = cmd_queue.new_command_buffer();
@@ -87,7 +80,7 @@ fn run_test() -> (usize, Duration) {
         let last_hash_ptr = unsafe { encoded_outputs_contents_ptr.add((NUM_ITERATIONS - 1) * 32) }; 
         let first_hash_slice = unsafe { std::slice::from_raw_parts(first_hash_ptr, 32) };
         let last_hash_slice = unsafe { std::slice::from_raw_parts(last_hash_ptr, 32) };
-        assert_eq!(first_hash_slice, hex!("91e9240f415223982edc345532630710e94a7f52cd5f48f5ee1afc555078f0ab"));
+        assert_eq!(first_hash_slice[..], hex!("91e9240f415223982edc345532630710e94a7f52cd5f48f5ee1afc555078f0ab"));
         assert_eq!(last_hash_slice[..], hex!("91e9240f415223982edc345532630710e94a7f52cd5f48f5ee1afc555078f0ab"));
         // return
         return (batch_size, start.elapsed());
@@ -97,10 +90,14 @@ fn run_test() -> (usize, Duration) {
 fn main() {
     let mut total_hashes = 0;
     let mut total_elapsed = Duration::new(0, 0);
-    let mut num_iterations = 0;
-
+    let mut num_iterations = 0;    
+    let devices = Device::all();
+    let device = devices.iter().find(|device| device.name() == "Apple M1").unwrap();
+    let library_compile_options = CompileOptions::new();
+    let library = device.new_library_with_source(PROGRAM, &library_compile_options).unwrap();
+    let kernel_function = library.get_function("sha256_kernel", None).unwrap();
     loop {
-        let (num_hashes, elapsed) = run_test();
+        let (num_hashes, elapsed) = run_test(&device, &kernel_function);
         total_hashes += num_hashes; // each run_test computes NUM_ITERATIONS hashes
         total_elapsed += elapsed;
         num_iterations += 1;
@@ -108,7 +105,7 @@ fn main() {
         if num_iterations % DISPLAY_INTERVAL == 0 {
             let hashes_per_second = total_hashes as f64 / total_elapsed.as_secs_f64();
             println!(
-                "After {} iterations: {:.2} hashes per second",
+                "GPU: After {} iterations: {:.2} hashes per second",
                 num_iterations, hashes_per_second
             );
         }
