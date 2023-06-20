@@ -5,11 +5,11 @@ use metal::*;
 use objc::rc::autoreleasepool;
 
 const PROGRAM: &'static str = include_str!("./kernel.metal");
-const NUM_ITERATIONS: usize = usize::pow(2, 15);
+const NUM_ITERATIONS: usize = usize::pow(2, 15); // runs out of memory above 32768
 const SHA256_HASH_SIZE: usize = 32;
 const DISPLAY_INTERVAL: usize = 1000;
 
-fn run_test(device: &Device, kernel_function: &Function, cmd_queue: &CommandQueue, num_iterations: usize) -> usize {
+fn run_test(device: &Device, cmd_queue: &CommandQueue, compute_function: &FunctionRef, num_iterations: usize) -> usize {
     return autoreleasepool(|| {
         // parameters
         let mut inputs: Vec<u8> = Vec::new();
@@ -20,16 +20,11 @@ fn run_test(device: &Device, kernel_function: &Function, cmd_queue: &CommandQueu
             input_lengths.push(input1.len() as u32);
         }
         let outputs: Vec<u8> = vec![0; SHA256_HASH_SIZE * num_iterations];
-        // pipeline
-        let pipeline_state_descriptor = ComputePipelineDescriptor::new();
-        pipeline_state_descriptor.set_thread_group_size_is_multiple_of_thread_execution_width(true);
-        pipeline_state_descriptor.set_compute_function(Some(&kernel_function));
         // encode
         let cmd_buffer = cmd_queue.new_command_buffer();
         let cmd_encoder = cmd_buffer.new_compute_command_encoder();
-        let pipeline_state = device.new_compute_pipeline_state_with_function(pipeline_state_descriptor.compute_function().unwrap()).unwrap();
+        let pipeline_state = device.new_compute_pipeline_state_with_function(compute_function).unwrap();
         cmd_encoder.set_compute_pipeline_state(&pipeline_state);
-        //cmd_encoder.set_threadgroup_memory_length(0, 1024);
         // input
         let encoded_inputs = {
             device.new_buffer_with_data(
@@ -39,7 +34,7 @@ fn run_test(device: &Device, kernel_function: &Function, cmd_queue: &CommandQueu
             )
         };
         cmd_encoder.set_buffer(0, Some(&encoded_inputs), 0);
-        // input length
+        // input lengths
         let encoded_input_lengths = {
             device.new_buffer_with_data(
                 input_lengths.as_ptr()  as *const _,
@@ -85,19 +80,31 @@ fn run_test(device: &Device, kernel_function: &Function, cmd_queue: &CommandQueu
 }
 
 fn main() {
+    // benchmark stats
     let mut total_hashes = 0;
     let mut total_elapsed = Duration::new(0, 0);
-    let mut num_iterations = 0;    
+    let mut num_iterations = 0;
+    // device
     let devices = Device::all();
     let device = devices.iter().find(|device| device.name() == "Apple M1").unwrap();
+    // library
     let library_compile_options = CompileOptions::new();
     library_compile_options.set_fast_math_enabled(true);
     let library = device.new_library_with_source(PROGRAM, &library_compile_options).unwrap();
+    // kernel function
     let kernel_function = library.get_function("sha256_kernel", None).unwrap();
+    // command queue
     let cmd_queue = device.new_command_queue();
+    // pipeline
+    let pipeline_state_descriptor = ComputePipelineDescriptor::new();
+    pipeline_state_descriptor.set_thread_group_size_is_multiple_of_thread_execution_width(true);
+    pipeline_state_descriptor.set_compute_function(Some(&kernel_function));
+    // compute function
+    let compute_function = pipeline_state_descriptor.compute_function().unwrap();
+    // loop
     loop {
         let start = std::time::Instant::now();
-        let num_hashes = run_test(&device, &kernel_function, &cmd_queue, NUM_ITERATIONS);
+        let num_hashes = run_test(&device, &cmd_queue, compute_function, NUM_ITERATIONS);
         let elapsed = start.elapsed();
         total_hashes += num_hashes;
         total_elapsed += elapsed;
