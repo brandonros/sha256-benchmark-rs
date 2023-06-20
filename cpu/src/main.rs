@@ -20,14 +20,14 @@ fn run_test(pool: &ThreadPool) -> usize {
         });
     }
     // custom thread pool
-    let num_iterations = iterations.len();
     return pool.install(|| {
         // iterate
         let output = iterations.par_iter().map(|iteration| {
             sha2::Sha256::digest(&iteration.input)
         }).collect::<Vec<_>>();
-        assert_eq!(output[0][..], hex!("91e9240f415223982edc345532630710e94a7f52cd5f48f5ee1afc555078f0ab"));
-        assert_eq!(output[num_iterations - 1][..], hex!("91e9240f415223982edc345532630710e94a7f52cd5f48f5ee1afc555078f0ab"));
+        for i in 0..NUM_ITERATIONS {
+            assert_eq!(output[i][..], hex!("91e9240f415223982edc345532630710e94a7f52cd5f48f5ee1afc555078f0ab"));
+        }
         return output.len();
     });
 }
@@ -49,7 +49,7 @@ fn main() {
         if num_iterations % DISPLAY_INTERVAL == 0 {
             let hashes_per_second = total_hashes as f64 / total_elapsed.as_secs_f64();
             println!(
-                "After {} iterations: {:.2} hashes per second",
+                "CPU: After {} iterations: {:.2} hashes per second",
                 num_iterations, hashes_per_second
             );
         }
