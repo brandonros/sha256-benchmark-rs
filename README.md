@@ -12,5 +12,5 @@ cargo run --release --bin gpu
 
 ```
 CPU: After 1000 iterations: 16843376 hashes per second (8 threads)
-GPU: After 1000 iterations:  1383420 hashes per second
+GPU: After 1000 iterations:  4383297 hashes per second
 ```

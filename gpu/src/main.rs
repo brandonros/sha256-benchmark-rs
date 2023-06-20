@@ -6,7 +6,6 @@ use objc::rc::autoreleasepool;
 
 const PROGRAM: &'static str = include_str!("./kernel.metal");
 const NUM_ITERATIONS: usize = usize::pow(2, 15);
-const THREAD_GROUP_WIDTH: usize = 128;
 const SHA256_HASH_SIZE: usize = 32;
 const DISPLAY_INTERVAL: usize = 1000;
 
@@ -61,12 +60,12 @@ fn run_test(device: &Device, kernel_function: &Function, cmd_queue: &CommandQueu
         cmd_encoder.set_buffer(2, Some(&encoded_outputs), 0);
         // dispatch
         let thread_groups_count = MTLSize {
-            width: 128,
+            width: 256,
             height: 1,
             depth: 1,
         };
         let threads_per_threadgroup = MTLSize {
-            width: 256,
+            width: 128,
             height: 1,
             depth: 1,
         };

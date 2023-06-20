@@ -4,7 +4,6 @@
 
 using namespace metal;
 
-#define __CPROVER_assume(...) do {} while(0)
 #define NULL nullptr
 
 struct sha256_context {
@@ -16,83 +15,25 @@ struct sha256_context {
     uint32_t W[64];
 };
 
-// -----------------------------------------------------------------------------
-inline uint8_t _shb(uint32_t x, uint32_t n)
-{
-    return ((x >> (n & 31)) & 0xff);
-} // _shb
-
-// -----------------------------------------------------------------------------
-inline uint32_t _shw(uint32_t x, uint32_t n)
-{
-    return ((x << (n & 31)) & 0xffffffff);
-} // _shw
-
-// -----------------------------------------------------------------------------
-inline uint32_t _r(uint32_t x, uint8_t n)
-{
-    return ((x >> n) | _shw(x, 32 - n));
-} // _r
-
-// -----------------------------------------------------------------------------
-inline uint32_t _Ch(uint32_t x, uint32_t y, uint32_t z)
-{
-    return ((x & y) ^ ((~x) & z));
-} // _Ch
-
-// -----------------------------------------------------------------------------
-inline uint32_t _Ma(uint32_t x, uint32_t y, uint32_t z)
-{
-    return ((x & y) ^ (x & z) ^ (y & z));
-} // _Ma
-
-// -----------------------------------------------------------------------------
-inline uint32_t _S0(uint32_t x)
-{
-    return (_r(x, 2) ^ _r(x, 13) ^ _r(x, 22));
-} // _S0
-
-// -----------------------------------------------------------------------------
-inline uint32_t _S1(uint32_t x)
-{
-    return (_r(x, 6) ^ _r(x, 11) ^ _r(x, 25));
-} // _S1
-
-// -----------------------------------------------------------------------------
-inline uint32_t _G0(uint32_t x)
-{
-    return (_r(x, 7) ^ _r(x, 18) ^ (x >> 3));
-} // _G0
-
-// -----------------------------------------------------------------------------
-inline uint32_t _G1(uint32_t x)
-{
-    return (_r(x, 17) ^ _r(x, 19) ^ (x >> 10));
-} // _G1
-
-// -----------------------------------------------------------------------------
-inline uint32_t _word(const device uint8_t *c) // TODO: device or thread?
-{
-    return (_shw(c[0], 24) | _shw(c[1], 16) | _shw(c[2], 8) | (c[3]));
-} // _word
-
-inline uint32_t _word(const thread uint8_t *c) // TODO: device or thread?
-{
-    return (_shw(c[0], 24) | _shw(c[1], 16) | _shw(c[2], 8) | (c[3]));
-} // _word
-
-// -----------------------------------------------------------------------------
-inline void _addbits(thread sha256_context *ctx, uint32_t n)
-{
-    __CPROVER_assume(__CPROVER_DYNAMIC_OBJECT(ctx));
-
-    if (ctx->bits[0] > (0xffffffff - n)) {
-        ctx->bits[1] = (ctx->bits[1] + 1) & 0xFFFFFFFF;
-    }
-    ctx->bits[0] = (ctx->bits[0] + n) & 0xFFFFFFFF;
-} // _addbits
-
-inline void _hash(thread sha256_context *ctx)
+#define _shb(x, n) ((x >> (n & 31)) & 0xff)
+#define _shw(x, n) ((x << (n & 31)) & 0xffffffff)
+#define _r(x, n) ((x >> n) | _shw(x, 32 - n))
+#define _Ch(x, y, z) ((x & y) ^ ((~x) & z))
+#define _Ma(x, y, z) ((x & y) ^ (x & z) ^ (y & z))
+#define _S0(x) (_r(x, 2) ^ _r(x, 13) ^ _r(x, 22))
+#define _S1(x) (_r(x, 6) ^ _r(x, 11) ^ _r(x, 25))
+#define _G0(x) (_r(x, 7) ^ _r(x, 18) ^ (x >> 3))
+#define _G1(x) (_r(x, 17) ^ _r(x, 19) ^ (x >> 10))
+#define _word(c) (_shw((c)[0], 24) | _shw((c)[1], 16) | _shw((c)[2], 8) | ((c)[3]))
+#define _addbits(ctx, n)                                 \
+    do {                                                 \
+        if ((ctx)->bits[0] > (0xffffffff - (n))) {       \
+            (ctx)->bits[1] = ((ctx)->bits[1] + 1) & 0xFFFFFFFF; \
+        }                                                \
+        (ctx)->bits[0] = ((ctx)->bits[0] + (n)) & 0xFFFFFFFF;   \
+    } while(0)
+    
+void _hash(thread sha256_context *ctx)
 {
     const uint32_t K[64] = {
       0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5,
@@ -111,8 +52,7 @@ inline void _hash(thread sha256_context *ctx)
       0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
       0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208,
       0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2
-  };
-    __CPROVER_assume(__CPROVER_DYNAMIC_OBJECT(ctx));
+    };
 
     uint32_t a, b, c, d, e, f, g, h;
     uint32_t t[2];
@@ -128,7 +68,7 @@ inline void _hash(thread sha256_context *ctx)
 
     for (uint32_t i = 0; i < 64; i++) {
         if (i < 16) {
-            ctx->W[i] = _word(&ctx->buf[_shw(i, 2)]);
+            ctx->W[i] = _word((&ctx->buf[_shw(i, 2)]));
         } else {
             ctx->W[i] = _G1(ctx->W[i - 2])  + ctx->W[i - 7] +
                         _G0(ctx->W[i - 15]) + ctx->W[i - 16];
@@ -156,7 +96,7 @@ inline void _hash(thread sha256_context *ctx)
     ctx->hash[7] += h;
 } // _hash
 
-inline void sha256_init(thread sha256_context *ctx)
+void sha256_init(thread sha256_context *ctx)
 {
     if (ctx != NULL) {
         ctx->bits[0] = ctx->bits[1] = ctx->len = 0;
@@ -171,13 +111,11 @@ inline void sha256_init(thread sha256_context *ctx)
     }
 } // sha256_init
 
-inline void sha256_hash(thread sha256_context *ctx, const device void *data, size_t len)
+void sha256_hash(thread sha256_context *ctx, const thread void *data, size_t len)
 {
-    const device uint8_t *bytes = (const device uint8_t *)data;
+    const thread uint8_t *bytes = (const thread uint8_t *)data;
 
     if ((ctx != NULL) && (bytes != NULL) && (ctx->len < sizeof(ctx->buf))) {
-        __CPROVER_assume(__CPROVER_DYNAMIC_OBJECT(bytes));
-        __CPROVER_assume(__CPROVER_DYNAMIC_OBJECT(ctx));
         for (size_t i = 0; i < len; i++) {
             ctx->buf[ctx->len++] = bytes[i];
             if (ctx->len == sizeof(ctx->buf)) {
@@ -189,8 +127,7 @@ inline void sha256_hash(thread sha256_context *ctx, const device void *data, siz
     }
 } // sha256_hash
 
-// -----------------------------------------------------------------------------
-inline void sha256_done(thread sha256_context *ctx, device uint8_t *hash)
+void sha256_done(thread sha256_context *ctx, thread uint8_t *hash)
 {
     uint32_t i, j;
 
@@ -234,8 +171,7 @@ inline void sha256_done(thread sha256_context *ctx, device uint8_t *hash)
     }
 } // sha256_done
 
-// -----------------------------------------------------------------------------
-inline void sha256(thread sha256_context *ctx, const device void *data, size_t len, device uint8_t *hash)
+void sha256(thread sha256_context *ctx, const thread void *data, size_t len, thread uint8_t *hash)
 {
     sha256_init(ctx);
     sha256_hash(ctx, data, len);
@@ -248,11 +184,31 @@ kernel void sha256_kernel(device uint8_t *inputs [[ buffer(0) ]],
                  uint gid [[ thread_position_in_grid ]],
                  uint lid [[ thread_position_in_threadgroup ]])
 {
-    thread sha256_context ctx;
+    // calculate input_start based on gid
     uint32_t input_start = 0;
     for (uint32_t i = 0; i < gid; i++) {
         input_start += input_lengths[i]; 
     }
+    // device variables
+    device uint8_t *device_input = inputs + input_start;
+    device uint8_t *device_output = outputs + (gid * 32);
     uint32_t input_length = input_lengths[gid];
-    sha256(&ctx, inputs + input_start, input_length, outputs + (gid * 32));
+    // thread local variables
+    thread sha256_context ctx;
+    thread uint8_t thread_output[32];
+    thread uint8_t thread_input[256];
+    // check input length
+    if (input_length < 256) {
+        // TODO: freak out
+    }
+    // copy device input to thread input
+    for (uint32_t i = 0; i < input_length; i++) {
+        thread_input[i] = device_input[i];
+    }
+    // call hash
+    sha256(&ctx, thread_input, input_length, thread_output);
+    // copy thread output to device output
+    for (uint32_t i = 0; i < 32; i++) {
+        device_output[i] = thread_output[i];
+    }
 }
