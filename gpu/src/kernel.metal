@@ -245,12 +245,13 @@ inline void sha256(thread sha256_context *ctx, const device void *data, size_t l
 kernel void sha256_kernel(device uint8_t *inputs [[ buffer(0) ]],
                  device uint32_t *input_lengths [[ buffer(1) ]],
                  device uint8_t *outputs [[ buffer(2) ]],
-                 uint gid [[ thread_position_in_grid ]])
+                 uint gid [[ thread_position_in_grid ]],
+                 uint lid [[ thread_position_in_threadgroup ]])
 {
     thread sha256_context ctx;
     uint32_t input_start = 0;
     for (uint32_t i = 0; i < gid; i++) {
-        input_start += input_lengths[i];
+        input_start += input_lengths[i]; 
     }
     uint32_t input_length = input_lengths[gid];
     sha256(&ctx, inputs + input_start, input_length, outputs + (gid * 32));

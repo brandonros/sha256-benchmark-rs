@@ -3,7 +3,7 @@ use sha2::Digest;
 use hex_literal::hex;
 use std::time::Duration;
 
-const NUM_ITERATIONS: usize = usize::pow(2, 18);
+const NUM_ITERATIONS: usize = usize::pow(2, 15);
 const DISPLAY_INTERVAL: u32 = 1000;
 
 struct Iteration {

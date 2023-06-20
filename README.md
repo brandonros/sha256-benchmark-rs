@@ -1,9 +1,16 @@
 # sha256-benchmark-rs
 SHA256 CPU + GPU benchmark for Apple Metal
 
+## How to use
+
+```shell
+cargo run --release --bin cpu
+cargo run --release --bin gpu
+```
+
 ## Results
 
 ```
-CPI: After 1000 iterations: 16843376 hashes per second
-GPU: After 1000 iterations:  1023213 hashes per second
+CPU: After 1000 iterations: 16843376 hashes per second (8 threads)
+GPU: After 1000 iterations:  1383420 hashes per second
 ```
