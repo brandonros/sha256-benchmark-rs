@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use metal::*;
 use objc::rc::autoreleasepool;
 
@@ -5,8 +7,10 @@ const PROGRAM: &'static str = include_str!("./kernel.metal");
 const NUM_ITERATIONS: usize = 32768;
 const THREAD_GROUP_WIDTH: usize = 64;
 const SHA256_HASH_SIZE: usize = 32;
+const DISPLAY_INTERVAL: usize = 1000;
 
-fn run_test() {
+fn run_test() -> (usize, Duration) {
+    let start = std::time::Instant::now();
     // parameters
     let mut inputs: Vec<u8> = Vec::new();
     let mut input_lengths: Vec<u32> = Vec::new();
@@ -75,29 +79,29 @@ fn run_test() {
     cmd_encoder.end_encoding();
     cmd_buffer.commit();
     cmd_buffer.wait_until_completed();
-    // get output
-    let encoded_outputs_contents_ptr = encoded_outputs.contents() as *mut u8;
-    for i in 0..batch_size {
-        let hash_ptr = unsafe { encoded_outputs_contents_ptr.add(i * 32) }; // Pointer to the start of each hash.
-        let hash_slice = unsafe { std::slice::from_raw_parts(hash_ptr, 32) };
-        //println!("Hash {}: {:02x?}", i, hash_slice);
-    }
+    // return
+    (batch_size, start.elapsed())
 }
 
 fn main() {
     autoreleasepool(|| {
+        let mut total_hashes = 0;
+        let mut total_elapsed = Duration::new(0, 0);
         let mut num_iterations = 0;
-        let mut toal_elapsed = 0;
+
         loop {
-            // timer
-            let start = std::time::Instant::now();
-            // run test
-            run_test();
-            // end
-            let elapsed = start.elapsed().as_millis();
-            toal_elapsed += elapsed;
+            let (num_hashes, elapsed) = run_test();
+            total_hashes += num_hashes; // each run_test computes NUM_ITERATIONS hashes
+            total_elapsed += elapsed;
             num_iterations += 1;
-            println!("NUM_ITERATIONS = {NUM_ITERATIONS} THREAD_GROUP_WIDTH = {THREAD_GROUP_WIDTH} average = {}", toal_elapsed / num_iterations);
+
+            if num_iterations % DISPLAY_INTERVAL == 0 {
+                let hashes_per_second = total_hashes as f64 / total_elapsed.as_secs_f64();
+                println!(
+                    "After {} iterations: {:.2} hashes per second",
+                    num_iterations, hashes_per_second
+                );
+            }
         }
     });
 }
