@@ -5,3 +5,4 @@ edition = "2021"
 
 [dependencies]
 metal = "0.25.0"
+hex-literal = "0.4.1"

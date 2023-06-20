@@ -8,3 +8,4 @@ edition = "2021"
 [dependencies]
 rayon = "1.7.0"
 sha2 = "0.10.7"
+hex-literal = "0.4.1"

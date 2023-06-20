@@ -1,2 +1,2 @@
-# metal-sha256-rs
-Proof of concept SHA256 Apple Metal application
+# sha256-benchmark-rs
+SHA256 CPU + GPU benchmark for Apple Metal

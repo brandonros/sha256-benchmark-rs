@@ -72,6 +72,7 @@ dependencies = [
 name = "cpu"
 version = "0.1.0"
 dependencies = [
+ "hex-literal",
  "rayon",
  "sha2",
 ]
@@ -195,6 +196,7 @@ dependencies = [
 name = "gpu"
 version = "0.1.0"
 dependencies = [
+ "hex-literal",
  "metal",
 ]
 
@@ -206,6 +208,12 @@ checksum = "ee512640fe35acbfb4bb779db6f0d80704c2cacfa2e39b601ef3e3f47d1ae4c7"
 dependencies = [
  "libc",
 ]
+
+[[package]]
+name = "hex-literal"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6fe2267d4ed49bc07b63801559be28c718ea06c4738b7a03c94df7386d2cde46"
 
 [[package]]
 name = "libc"

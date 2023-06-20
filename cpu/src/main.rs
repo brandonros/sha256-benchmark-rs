@@ -1,5 +1,6 @@
 use rayon::{prelude::{IntoParallelRefIterator, ParallelIterator}, ThreadPoolBuilder};
 use sha2::Digest;
+use hex_literal::hex;
 use std::time::Duration;
 
 const NUM_ITERATIONS: usize = 32768;
@@ -22,6 +23,7 @@ fn run_test() -> (usize, Duration) {
         });
     }
     // custom thread pool
+    let num_iterations = iterations.len();
     let num_threads = 8;
     let pool = ThreadPoolBuilder::new().num_threads(num_threads).build().unwrap();
     let (num_hashes, elapsed) = pool.install(|| {
@@ -30,6 +32,8 @@ fn run_test() -> (usize, Duration) {
         let output = iterations.par_iter().map(|iteration| {
             sha2::Sha256::digest(&iteration.input)
         }).collect::<Vec<_>>();
+        assert_eq!(output[0][..], hex!("91e9240f415223982edc345532630710e94a7f52cd5f48f5ee1afc555078f0ab"));
+        assert_eq!(output[num_iterations - 1][..], hex!("91e9240f415223982edc345532630710e94a7f52cd5f48f5ee1afc555078f0ab"));
         let elapsed = start.elapsed();
         (output.len(), elapsed)
     });
