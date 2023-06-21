@@ -113,10 +113,10 @@ fn main() {
         total_elapsed += elapsed;
         num_iterations += 1;
         if num_iterations % DISPLAY_INTERVAL == 0 {
-            let hashes_per_second = total_hashes as f64 / total_elapsed.as_secs_f64();
+            let megahashes_per_second = (total_hashes as f64 / total_elapsed.as_secs_f64()) / 1000000.0;
             println!(
-                "GPU: After {} iterations: {:.0} hashes per second",
-                num_iterations, hashes_per_second
+                "GPU: After {} iterations: {:.5} MH/s",
+                num_iterations, megahashes_per_second
             );
         }
     }

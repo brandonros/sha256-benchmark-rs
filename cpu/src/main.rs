@@ -4,7 +4,7 @@ use hex_literal::hex;
 use std::time::Duration;
 
 const NUM_ITERATIONS: usize = usize::pow(2, 15);
-const DISPLAY_INTERVAL: u32 = 1000;
+const DISPLAY_INTERVAL: u32 = 10;
 
 struct Iteration {
     pub input: Vec<u8>
@@ -47,10 +47,10 @@ fn main() {
         num_iterations += 1;
 
         if num_iterations % DISPLAY_INTERVAL == 0 {
-            let hashes_per_second = total_hashes as f64 / total_elapsed.as_secs_f64();
+            let megahashes_per_second = (total_hashes as f64 / total_elapsed.as_secs_f64()) / 1000000.0;
             println!(
-                "CPU: After {} iterations: {:.2} hashes per second",
-                num_iterations, hashes_per_second
+                "CPU: After {} iterations: {:.5} MH/s",
+                num_iterations, megahashes_per_second
             );
         }
     }

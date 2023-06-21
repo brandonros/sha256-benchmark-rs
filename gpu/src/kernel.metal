@@ -111,7 +111,7 @@ void sha256_init(thread sha256_context *ctx)
     }
 } // sha256_init
 
-void sha256_hash(thread sha256_context *ctx, const thread void *data, size_t len)
+void sha256_hash(thread sha256_context *ctx, const thread uint8_t *data, size_t len)
 {
     const thread uint8_t *bytes = (const thread uint8_t *)data;
 
@@ -171,7 +171,7 @@ void sha256_done(thread sha256_context *ctx, thread uint8_t *output)
     }
 } // sha256_done
 
-void sha256(thread sha256_context *ctx, const thread void *input, size_t len, thread uint8_t *output)
+void sha256(thread sha256_context *ctx, const thread uint8_t *input, size_t len, thread uint8_t *output)
 {
     sha256_init(ctx);
     sha256_hash(ctx, input, len);
@@ -181,20 +181,22 @@ void sha256(thread sha256_context *ctx, const thread void *input, size_t len, th
 kernel void sha256_kernel(device uint8_t *inputs [[ buffer(0) ]],
                           device uint32_t *input_lengths [[ buffer(1) ]],
                           device uint8_t *outputs [[ buffer(2) ]],
-                          uint gid [[ thread_position_in_grid ]],
-                          uint lid [[ thread_position_in_threadgroup ]])
+                          uint threadgroup_position_in_grid [[ threadgroup_position_in_grid ]],
+                          uint thread_position_in_grid [[ thread_position_in_grid ]],
+                          uint thread_position_in_threadgroup [[ thread_position_in_threadgroup ]],
+                          uint threads_per_threadgroup [[ threads_per_threadgroup ]])
 {
-    // calculate input_start based on gid
+    // calculate input_start based on thread_position_in_grid
     uint32_t input_start = 0;
-    for (uint32_t i = 0; i < gid; i++) {
+    for (uint32_t i = 0; i < thread_position_in_grid; i++) {
         input_start += input_lengths[i]; 
     }
-    // calculate output_start based on gid
-    uint32_t output_start = gid * 32;
+    // calculate output_start based on thread_position_in_grid
+    uint32_t output_start = thread_position_in_grid * 32;
     // device variables
     device uint8_t *device_input = inputs + input_start;
     device uint8_t *device_output = outputs + output_start;
-    uint32_t input_length = input_lengths[gid];
+    uint32_t input_length = input_lengths[thread_position_in_grid];
     // thread local variables
     thread sha256_context ctx;
     thread uint8_t thread_output[32];
