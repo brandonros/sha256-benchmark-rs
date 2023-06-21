@@ -178,7 +178,7 @@ void sha256(thread sha256_context *ctx, const thread void *input, size_t len, th
     sha256_done(ctx, output);
 } // sha256
 
-/*kernel void sha256_kernel(device uint8_t *inputs [[ buffer(0) ]],
+kernel void sha256_kernel(device uint8_t *inputs [[ buffer(0) ]],
                           device uint32_t *input_lengths [[ buffer(1) ]],
                           device uint8_t *outputs [[ buffer(2) ]],
                           uint gid [[ thread_position_in_grid ]],
@@ -213,51 +213,5 @@ void sha256(thread sha256_context *ctx, const thread void *input, size_t len, th
     // copy thread output to device output
     for (uint32_t i = 0; i < 32; i++) {
         device_output[i] = thread_output[i];
-    }
-}*/
-
-#define INPUTS_PER_THREAD 512
-
-kernel void sha256_kernel(device uint8_t *inputs [[ buffer(0) ]],
-                          device uint32_t *input_lengths [[ buffer(1) ]],
-                          device uint8_t *outputs [[ buffer(2) ]],
-                          device uint32_t *thread_chunk_size_array [[ buffer(3) ]],
-                          uint gid [[ thread_position_in_grid ]],
-                          uint lid [[ thread_position_in_threadgroup ]])
-{
-    // get thread_chunk_size
-    uint32_t thread_chunk_size = thread_chunk_size_array[0];
-    // thread local variables
-    thread sha256_context ctx;
-    thread uint8_t thread_output[32];
-    thread uint8_t thread_input[256];
-    // Loop through each chunk
-    for (uint32_t chunk = 0; chunk < thread_chunk_size; chunk++) {
-        // calculate input_start based on gid and chunk
-        uint32_t input_start = 0;
-        for (uint32_t i = 0; i < gid * thread_chunk_size + chunk; i++) {
-            input_start += input_lengths[i];
-        }
-        // calculate output_start based on gid, chunk, and sha256 hash size (32 bytes)
-        uint32_t output_start = (gid * thread_chunk_size + chunk) * 32;
-        // device variables
-        device uint8_t *device_input = inputs + input_start;
-        device uint8_t *device_output = outputs + output_start;
-        uint32_t input_length = input_lengths[gid * thread_chunk_size + chunk];
-        // check input length
-        if (input_length > 256) {
-            // TODO: handle input larger than buffer
-            return;
-        }
-        // copy device input to thread input
-        for (uint32_t i = 0; i < input_length; i++) {
-            thread_input[i] = device_input[i];
-        }
-        // call hash
-        sha256(&ctx, thread_input, input_length, thread_output);
-        // copy thread output to device output
-        for (uint32_t i = 0; i < 32; i++) {
-            device_output[i] = thread_output[i];
-        }
     }
 }
