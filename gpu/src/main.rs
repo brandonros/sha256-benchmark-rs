@@ -6,14 +6,15 @@ use objc::rc::autoreleasepool;
 
 const PROGRAM: &'static str = include_str!("./kernel.metal");
 const SHA256_HASH_SIZE: usize = 32;
-const DISPLAY_INTERVAL: usize = 100;
+const DISPLAY_INTERVAL: usize = 10;
 
 fn run_test(device: &Device, cmd_queue: &CommandQueue, compute_function: &FunctionRef) -> usize {
     return autoreleasepool(|| {
         // parameters
         let num_thread_groups = 512;
-        let num_threads_per_thread_group = 32;
-        let num_iterations = num_thread_groups * num_threads_per_thread_group;
+        let num_threads_per_thread_group = 48;
+        let thread_chunk_size = 4;
+        let num_iterations = num_thread_groups * num_threads_per_thread_group * thread_chunk_size;
         let mut inputs: Vec<u8> = Vec::new();
         let mut input_lengths: Vec<u32> = Vec::new();
         for _ in 0..num_iterations {
@@ -54,6 +55,16 @@ fn run_test(device: &Device, cmd_queue: &CommandQueue, compute_function: &Functi
             )
         };
         cmd_encoder.set_buffer(2, Some(&encoded_outputs), 0);
+        // thread_chunk_size
+        let encoded_thread_chunk_size_array = {
+            let thread_chunk_size_array = [thread_chunk_size as u32];
+            device.new_buffer_with_data(
+                thread_chunk_size_array.as_ptr() as *const _,
+                (thread_chunk_size_array.len() * std::mem::size_of::<u32>()) as u64,
+                MTLResourceOptions::CPUCacheModeDefaultCache,
+            )
+        };
+        cmd_encoder.set_buffer(3, Some(&encoded_thread_chunk_size_array), 0);
         // dispatch
         cmd_encoder.dispatch_thread_groups(
             MTLSize {
