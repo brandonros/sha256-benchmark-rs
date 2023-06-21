@@ -127,7 +127,7 @@ void sha256_hash(thread sha256_context *ctx, const thread void *data, size_t len
     }
 } // sha256_hash
 
-void sha256_done(thread sha256_context *ctx, thread uint8_t *hash)
+void sha256_done(thread sha256_context *ctx, thread uint8_t *output)
 {
     uint32_t i, j;
 
@@ -156,50 +156,53 @@ void sha256_done(thread sha256_context *ctx, thread uint8_t *hash)
         ctx->buf[56] = _shb(ctx->bits[1], 24);
         _hash(ctx);
 
-        if (hash != NULL) {
+        if (output != NULL) {
             for (i = 0, j = 24; i < 4; i++, j -= 8) {
-                hash[i +  0] = _shb(ctx->hash[0], j);
-                hash[i +  4] = _shb(ctx->hash[1], j);
-                hash[i +  8] = _shb(ctx->hash[2], j);
-                hash[i + 12] = _shb(ctx->hash[3], j);
-                hash[i + 16] = _shb(ctx->hash[4], j);
-                hash[i + 20] = _shb(ctx->hash[5], j);
-                hash[i + 24] = _shb(ctx->hash[6], j);
-                hash[i + 28] = _shb(ctx->hash[7], j);
+                output[i +  0] = _shb(ctx->hash[0], j);
+                output[i +  4] = _shb(ctx->hash[1], j);
+                output[i +  8] = _shb(ctx->hash[2], j);
+                output[i + 12] = _shb(ctx->hash[3], j);
+                output[i + 16] = _shb(ctx->hash[4], j);
+                output[i + 20] = _shb(ctx->hash[5], j);
+                output[i + 24] = _shb(ctx->hash[6], j);
+                output[i + 28] = _shb(ctx->hash[7], j);
             }
         }
     }
 } // sha256_done
 
-void sha256(thread sha256_context *ctx, const thread void *data, size_t len, thread uint8_t *hash)
+void sha256(thread sha256_context *ctx, const thread void *input, size_t len, thread uint8_t *output)
 {
     sha256_init(ctx);
-    sha256_hash(ctx, data, len);
-    sha256_done(ctx, hash);
+    sha256_hash(ctx, input, len);
+    sha256_done(ctx, output);
 } // sha256
 
 kernel void sha256_kernel(device uint8_t *inputs [[ buffer(0) ]],
-                 device uint32_t *input_lengths [[ buffer(1) ]],
-                 device uint8_t *outputs [[ buffer(2) ]],
-                 uint gid [[ thread_position_in_grid ]],
-                 uint lid [[ thread_position_in_threadgroup ]])
+                          device uint32_t *input_lengths [[ buffer(1) ]],
+                          device uint8_t *outputs [[ buffer(2) ]],
+                          uint gid [[ thread_position_in_grid ]],
+                          uint lid [[ thread_position_in_threadgroup ]])
 {
     // calculate input_start based on gid
     uint32_t input_start = 0;
     for (uint32_t i = 0; i < gid; i++) {
         input_start += input_lengths[i]; 
     }
+    // calculate output_start based on gid
+    uint32_t output_start = gid * 32;
     // device variables
     device uint8_t *device_input = inputs + input_start;
-    device uint8_t *device_output = outputs + (gid * 32);
+    device uint8_t *device_output = outputs + output_start;
     uint32_t input_length = input_lengths[gid];
     // thread local variables
     thread sha256_context ctx;
     thread uint8_t thread_output[32];
     thread uint8_t thread_input[256];
     // check input length
-    if (input_length < 256) {
+    if (input_length > 256) {
         // TODO: freak out
+        return;
     }
     // copy device input to thread input
     for (uint32_t i = 0; i < input_length; i++) {

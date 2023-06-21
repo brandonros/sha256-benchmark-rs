@@ -12,7 +12,7 @@ cargo run --release --bin gpu
 
 ```
 CPU: After 1000 iterations: 10873127 hashes per second
-GPU: After 1000 iterations:  4383297 hashes per second
+GPU: After 1000 iterations: TODO hashes per second
 ```
 
 ## hashcat results

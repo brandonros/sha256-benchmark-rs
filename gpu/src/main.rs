@@ -5,13 +5,15 @@ use metal::*;
 use objc::rc::autoreleasepool;
 
 const PROGRAM: &'static str = include_str!("./kernel.metal");
-const NUM_ITERATIONS: usize = usize::pow(2, 15); // runs out of memory above 32768
 const SHA256_HASH_SIZE: usize = 32;
-const DISPLAY_INTERVAL: usize = 1000;
+const DISPLAY_INTERVAL: usize = 100;
 
-fn run_test(device: &Device, cmd_queue: &CommandQueue, compute_function: &FunctionRef, num_iterations: usize) -> usize {
+fn run_test(device: &Device, cmd_queue: &CommandQueue, compute_function: &FunctionRef) -> usize {
     return autoreleasepool(|| {
         // parameters
+        let num_thread_groups = 512;
+        let num_threads_per_thread_group = 32;
+        let num_iterations = num_thread_groups * num_threads_per_thread_group;
         let mut inputs: Vec<u8> = Vec::new();
         let mut input_lengths: Vec<u32> = Vec::new();
         for _ in 0..num_iterations {
@@ -53,17 +55,18 @@ fn run_test(device: &Device, cmd_queue: &CommandQueue, compute_function: &Functi
         };
         cmd_encoder.set_buffer(2, Some(&encoded_outputs), 0);
         // dispatch
-        let thread_groups_count = MTLSize {
-            width: 256,
-            height: 1,
-            depth: 1,
-        };
-        let threads_per_threadgroup = MTLSize {
-            width: 128,
-            height: 1,
-            depth: 1,
-        };
-        cmd_encoder.dispatch_thread_groups(thread_groups_count, threads_per_threadgroup);
+        cmd_encoder.dispatch_thread_groups(
+            MTLSize {
+                width: num_thread_groups as u64,
+                height: 1,
+                depth: 1,
+            },
+            MTLSize {
+                width: num_threads_per_thread_group as u64,
+                height: 1,
+                depth: 1,
+            },
+        );
         cmd_encoder.end_encoding();
         cmd_buffer.commit();
         cmd_buffer.wait_until_completed();
@@ -104,7 +107,7 @@ fn main() {
     // loop
     loop {
         let start = std::time::Instant::now();
-        let num_hashes = run_test(&device, &cmd_queue, compute_function, NUM_ITERATIONS);
+        let num_hashes = run_test(&device, &cmd_queue, compute_function);
         let elapsed = start.elapsed();
         total_hashes += num_hashes;
         total_elapsed += elapsed;
@@ -112,7 +115,7 @@ fn main() {
         if num_iterations % DISPLAY_INTERVAL == 0 {
             let hashes_per_second = total_hashes as f64 / total_elapsed.as_secs_f64();
             println!(
-                "GPU: After {} iterations: {:.2} hashes per second",
+                "GPU: After {} iterations: {:.0} hashes per second",
                 num_iterations, hashes_per_second
             );
         }
